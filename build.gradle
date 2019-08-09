@@ -1,0 +1,52 @@
+plugins {
+	id 'groovy'
+	id 'com.github.johnrengelman.shadow' version '4.0.4'
+}
+
+repositories {
+	maven { url = 'http://jcenter.bintray.com' }
+	maven { url = 'http://repo.maven.apache.org/maven2' }
+	maven { url = 'https://plugins.gradle.org/m2' }
+}
+
+
+defaultTasks 'shadowJar'
+
+dependencies {
+	compile(group: 'org.codehaus.groovy', name: 'groovy-all', version: '2.5.6')
+//	compile(group: 'org.apache.ant', name: 'ant', version: '1.9.4')
+//	compile(group: 'org.apache.ant', name: 'ant-launcher', version: '1.9.4')
+//	compile(group: 'commons-net', name: 'commons-net', version: '3.6')
+//	compile(group: 'javax.mail', name: 'mail', version: '1.4.7')
+//	compile(group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version: '2.9.5')
+//	compile(group: 'com.fasterxml.jackson.core', name: 'jackson-core', version: '2.9.5')
+//	compile(group: 'com.fasterxml.jackson.core', name: 'jackson-annotations', version: '2.9.5')
+//	compile(group: 'com.ibm.paydir', name: 'aaaslib', version: '1.0')
+}
+
+shadowJar {
+	baseName = 'BVTLauncher'
+	extension = 'jar'
+	archiveName = "${baseName}.${extension}"
+	manifest {
+		attributes 'Implementation-Title' 	: archiveName
+		attributes 'Main-Class' 			: 'com.ibm.paydir.bvt.launcher.BvtLauncher'
+	}
+}
+
+task('sourcesJar', type: Jar) {
+	baseName = 'BVTLauncher'
+	archiveName = "${baseName}-sources.${extension}"
+	classifier = 'sources'
+	from sourceSets.main.allSource
+}
+
+task('groovydocJar', type: Jar, dependsOn: groovydoc) {
+	baseName = 'BVTLauncher'
+	archiveName = "${baseName}-javadoc.${extension}"
+	classifier = 'javadoc'
+	from javadoc.destinationDir
+}
+
+shadowJar.dependsOn 'groovydocJar'
+shadowJar.dependsOn 'sourcesJar'
