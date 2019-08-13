@@ -6,4 +6,4 @@ Usage:
 
 Output:
 
-    ./sheetSync.xls` - The synced and merged input files in XLS format
+    ./sheetSync.xls - The synced and merged input files in XLS format
