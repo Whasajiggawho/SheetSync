@@ -4,47 +4,49 @@ import com.xlson.groovycsv.CsvParser
 import org.apache.poi.hssf.usermodel.HSSFRow
 import org.apache.poi.hssf.usermodel.HSSFSheet
 import org.apache.poi.hssf.usermodel.HSSFWorkbook
-import org.apache.poi.poifs.filesystem.NotOLE2FileException
 import org.apache.poi.ss.usermodel.CellType
 
 public class SheetSync {
 
 	static List<ProductOnHand> PRODUCTS_ON_HAND = []
+	static List<ProductOnHand> PRODUCTS_CSV = []
+	static List<ProductOnHand> PRODUCTS_XLS = []
 
-	public static void main(String[] args) {
-		if(args.size() != 2) {
+	static String INPUT_CSV = 'BC_output.csv'
+	static String INPUT_XLS = 'QB_ProductServiceList.xls'
+
+
+	static void main(String[] args) {
+		File csvFile, xlsFile
+		if(args.size() == 0) {
+			println "Loading default input files"
+			csvFile = new File(INPUT_CSV)
+			xlsFile = new File(INPUT_XLS)
+		}
+		else if(args.size() == 2) {
+			println "Loading custom input files ${args}"
+			csvFile = new File(args[0])
+			xlsFile = new File(args[1])
+		}
+		else {
 			usage()
 			System.exit(1)
 		}
-		args.each { arg ->
-			File f = new File(arg)
-			if(!f.isFile()) {
-				System.err.println("Input file [${arg}] is missing or invalid.")
+		[csvFile, xlsFile].each {
+			if(!it.isFile()) {
+				System.err.println("Input file [${it.toString()}] is missing or invalid.")
 				System.exit(2)
 			}
-
-			println "Loading products from file [${arg}]"
-			try {
-				println "Attempting to load as a spreadsheet"
-				addXlsProducts(f)
-				println "Finished loading products from file [${arg}]"
-			} catch(NotOLE2FileException e1) {
-				try {
-					println "File was not a spreadsheet. Attempting to load as a csv"
-					addCsvProducts(f)
-					println "Finished loading products from file [${arg}]"
-				} catch(Exception e2) {
-					System.err.println('Unknown file format')
-					e2.printStackTrace()
-					System.exit(5)
-				}
-			}
-			catch(Exception e3) {
-				System.err.println('Unknown error')
-				e3.printStackTrace()
-				System.exit(6)
-			}
 		}
+
+		println "Loading products from file [${csvFile.toString()}]"
+		PRODUCTS_CSV = loadCsvProducts(csvFile)
+
+		println "Loading products from file [${xlsFile.toString()}]"
+		PRODUCTS_XLS = loadXlsProducts(xlsFile)
+
+		println "Syncing sheets"
+		syncProducts()
 
 		println "Generating output spreadsheet"
 		try
@@ -52,18 +54,31 @@ public class SheetSync {
 			File outputFile = new File('./SyncOutput.xls')
 			FileOutputStream outputStream = new FileOutputStream(outputFile);
 			SyncOutputGenerator.generateWorkbook(PRODUCTS_ON_HAND).write(outputStream);
-			println "Output spreadsheet [${outputFile.getCanonicalPath()}] generated"
+			println "\tOutput spreadsheet [${outputFile.getCanonicalPath()}] generated"
 		}
 		catch(Exception e)
 		{
-			System.err.println("Failed to write out results to XLS file");
+			System.err.println("\tFailed to write out results to XLS file");
 			e.printStackTrace();
 			System.exit(4);
 		}
+
+		println "Checking for missing SKUs"
+		for(ProductOnHand poh : PRODUCTS_XLS) {
+			if(!PRODUCTS_CSV.contains(poh)) {
+				System.err.println("\tProduct [${poh.SKU}] is missing from input [${csvFile.toString()}]")
+			}
+		}
+		for(ProductOnHand poh : PRODUCTS_CSV) {
+			if(!PRODUCTS_XLS.contains(poh)) {
+				System.err.println("\tProduct [${poh.SKU}] is missing from input [${xlsFile.toString()}]")
+			}
+		}
 	}
 
-	private static void addCsvProducts(File f) {
-		f.withReader {reader ->
+	private static def loadCsvProducts(File f) {
+		def ret = []
+		f.withReader { reader ->
 			Iterator iterator = CsvParser.parseCsv(reader)
 			while(iterator.hasNext()) {
 				def line = iterator.next()
@@ -71,22 +86,24 @@ public class SheetSync {
 				String product = line."Product/Service Name"
 				int quantity = (line."Quantity On Hand").toInteger()
 				ProductOnHand poh = new ProductOnHand(SKU: sku, PRODUCT: product, QUANTITY: quantity)
-				int index = PRODUCTS_ON_HAND.indexOf(poh)
+				int index = ret.indexOf(poh)
 				if(index > -1) {
-					if(PRODUCTS_ON_HAND[index].QUANTITY > poh.QUANTITY) {
-						println "Replacing [${PRODUCTS_ON_HAND[index].toString()}] with [${poh.toString()}]"
-						PRODUCTS_ON_HAND[index] = poh
+					println "\tFile [${f.toString()}] contains both [${ret[index]}] and [${poh}]. Using the lesser value."
+					if(ret[index].QUANTITY > poh.QUANTITY) {
+						ret[index] = poh
 					}
 				}
 				else {
-					println "Adding [${poh.toString()}]"
-					PRODUCTS_ON_HAND.add(poh)
+					println "\tLoaded product [${poh.toString()}] from file [${f.toString()}]"
+					ret.add(poh)
 				}
 			}
 		}
+		return ret
 	}
 
-	private static void addXlsProducts(File f) {
+	private static def loadXlsProducts(File f) {
+		def ret =[]
 		FileInputStream inputStream = new FileInputStream(f);
 		HSSFWorkbook workbook = new HSSFWorkbook(inputStream);
 		HSSFSheet worksheet = workbook.getSheetAt(0);
@@ -110,8 +127,7 @@ public class SheetSync {
 			}
 		}
 		if(skuIndex == -1 || productIndex == -1 || quantityIndex == -1) {
-			System.err.println("Input file [${f.toString()}] did not contain the required columns")
-			System.exit(3)
+			throw new Exception("Input file [${f.toString()}] did not contain the required columns")
 		}
 
 		for(int i = 1; true; i++) {
@@ -125,24 +141,59 @@ public class SheetSync {
 			int quantity = (row.getCell(quantityIndex)?:'0').toString().toInteger()
 
 			ProductOnHand poh = new ProductOnHand(SKU: sku, PRODUCT: product, QUANTITY: quantity)
+			int index = ret.indexOf(poh)
+			if(index > -1) {
+				println "\tFile [${f.toString()}] contains both [${ret[index]}] and [${poh}]. Using the lesser value."
+				if(ret[index].QUANTITY > poh.QUANTITY) {
+					ret[index] = poh
+				}
+			}
+			else {
+				println "\tLoaded product [${poh.toString()}] from file [${f.toString()}]"
+				ret.add(poh)
+			}
+		}
+		return ret
+	}
+
+	private static void syncProducts() {
+		PRODUCTS_XLS.each { poh ->
 			int index = PRODUCTS_ON_HAND.indexOf(poh)
 			if(index > -1) {
 				if(PRODUCTS_ON_HAND[index].QUANTITY > poh.QUANTITY) {
-					println "Replacing [${PRODUCTS_ON_HAND[index].toString()}] with [${poh.toString()}]"
+					println "\tReplacing [${PRODUCTS_ON_HAND[index].toString()}] with [${poh.toString()}]"
 					PRODUCTS_ON_HAND[index] = poh
 				}
 			}
 			else {
-				println "Ading [${poh.toString()}]"
+				println "\tAdding [${poh.toString()}]"
+				PRODUCTS_ON_HAND.add(poh)
+			}
+		}
+
+		PRODUCTS_CSV.each { poh ->
+			int index = PRODUCTS_ON_HAND.indexOf(poh)
+			if(index > -1) {
+				if(PRODUCTS_ON_HAND[index].QUANTITY > poh.QUANTITY) {
+					println "\tReplacing [${PRODUCTS_ON_HAND[index].toString()}] with [${poh.toString()}]"
+					PRODUCTS_ON_HAND[index].QUANTITY = poh.QUANTITY
+				}
+			}
+			else {
+				println "\tAdding [${poh.toString()}]"
 				PRODUCTS_ON_HAND.add(poh)
 			}
 		}
 	}
 
-	public static void usage() {
+	private static void usage() {
 		System.err.println("""\
-			Usage:
-			java -jar whasa.SheetSync.jar <spreadsheet1> <spreadsheet2>
+			Usage 1:
+			java -jar SheetSync.jar
+				Assumes BC_Output.csv and QBProdcutServiceList.xls in current folder
+			Usage 2:
+			java -jar SheetSync.jar <CSV File> <XLS File>
+				CSV file must be first argument
 			Output:
 			./sheetSync.xls - The synced and merged input files in XLS format""".stripIndent())
 	}

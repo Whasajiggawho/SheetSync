@@ -4,7 +4,8 @@
 /out
 /*.log
 whasa.SheetSync.iml
-/samples/
+BC_output.csv
+QB_ProductServiceList.xls
 SyncOutput.xls
 
 # Ignore Gradle GUI config

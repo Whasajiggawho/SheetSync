@@ -9,7 +9,7 @@ class ProductOnHand {
     public boolean equals(Object o) {
         if(o instanceof ProductOnHand)
         {
-            return ((ProductOnHand) o).SKU.equalsIgnoreCase(this.SKU) && ((ProductOnHand) o).PRODUCT.equalsIgnoreCase(this.PRODUCT)
+            return ((ProductOnHand) o).SKU.equalsIgnoreCase(this.SKU)// && ((ProductOnHand) o).PRODUCT.equalsIgnoreCase(this.PRODUCT)
         }
         return false;
     }
