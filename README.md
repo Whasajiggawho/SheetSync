@@ -6,4 +6,4 @@
 `java -jar SheetSync.jar <CSV File> <XLS File>` - CSV file must be first argument
 ___
 ###### Output:
-`./sheetSync.xls` - The synced and merged input files in XLS format
+`./SyncOutput.xls` - The synced and merged input files in XLS format
