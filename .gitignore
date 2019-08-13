@@ -3,8 +3,9 @@
 /.idea
 /out
 /*.log
-SheetSync.iml
+whasa.SheetSync.iml
 /samples/
+SyncOutput.xls
 
 # Ignore Gradle GUI config
 gradle-app.setting

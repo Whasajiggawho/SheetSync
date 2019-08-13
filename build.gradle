@@ -14,35 +14,30 @@ defaultTasks 'shadowJar'
 
 dependencies {
 	compile(group: 'org.codehaus.groovy', name: 'groovy-all', version: '2.5.6')
-//	compile(group: 'org.apache.ant', name: 'ant', version: '1.9.4')
-//	compile(group: 'org.apache.ant', name: 'ant-launcher', version: '1.9.4')
-//	compile(group: 'commons-net', name: 'commons-net', version: '3.6')
-//	compile(group: 'javax.mail', name: 'mail', version: '1.4.7')
-//	compile(group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version: '2.9.5')
-//	compile(group: 'com.fasterxml.jackson.core', name: 'jackson-core', version: '2.9.5')
-//	compile(group: 'com.fasterxml.jackson.core', name: 'jackson-annotations', version: '2.9.5')
-//	compile(group: 'com.ibm.paydir', name: 'aaaslib', version: '1.0')
+	compile(group: 'org.apache.poi', name: 'poi', version: '4.1.0')
+	compile(group: 'org.apache.poi', name: 'poi-ooxml-schemas', version: '4.1.0')
+	compile(group: 'com.xlson.groovycsv', name: 'groovycsv', version: '1.1')
 }
 
 shadowJar {
-	baseName = 'BVTLauncher'
+	baseName = 'SheetSync'
 	extension = 'jar'
 	archiveName = "${baseName}.${extension}"
 	manifest {
 		attributes 'Implementation-Title' 	: archiveName
-		attributes 'Main-Class' 			: 'com.ibm.paydir.bvt.launcher.BvtLauncher'
+		attributes 'Main-Class' 			: 'whasa.SheetSync'
 	}
 }
 
 task('sourcesJar', type: Jar) {
-	baseName = 'BVTLauncher'
+	baseName = 'SheetSync'
 	archiveName = "${baseName}-sources.${extension}"
 	classifier = 'sources'
 	from sourceSets.main.allSource
 }
 
 task('groovydocJar', type: Jar, dependsOn: groovydoc) {
-	baseName = 'BVTLauncher'
+	baseName = 'SheetSync'
 	archiveName = "${baseName}-javadoc.${extension}"
 	classifier = 'javadoc'
 	from javadoc.destinationDir
